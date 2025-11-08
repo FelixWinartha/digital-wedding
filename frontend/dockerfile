@@ -1,0 +1,20 @@
+# Gunakan Node.js versi stabil
+FROM node:18
+
+# Set working directory di container
+WORKDIR /app
+
+# Copy file package.json dan package-lock.json
+COPY package*.json ./
+
+# Install dependencies
+RUN npm install
+
+# Copy seluruh kode React ke container
+COPY . .
+
+# Expose port React (3000)
+EXPOSE 3000
+
+# Jalankan React app
+CMD ["npm", "start"]
