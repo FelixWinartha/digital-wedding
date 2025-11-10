@@ -9,7 +9,6 @@ const pool = new Pool({
   database: process.env.DB_NAME || "wedding_db",
 });
 
-// 🕓 Coba ulang koneksi sampai database siap
 const connectWithRetry = async (retries = 10, delay = 3000) => {
   for (let i = 0; i < retries; i++) {
     try {
@@ -17,15 +16,14 @@ const connectWithRetry = async (retries = 10, delay = 3000) => {
       console.log("✅ Database connected!");
       return;
     } catch (err) {
-      console.log(`⏳ Database belum siap... mencoba lagi (${i + 1}/${retries})`);
+      console.log(`Database belum siap... mencoba lagi (${i + 1}/${retries})`);
       await new Promise((res) => setTimeout(res, delay));
     }
   }
-  console.error("❌ Tidak bisa terhubung ke database setelah beberapa kali percobaan.");
+  console.error("Tidak bisa terhubung ke database setelah beberapa kali percobaan.");
   process.exit(1);
 };
 
-// ✅ Buat tabel otomatis jika belum ada
 const initDB = async () => {
   try {
     await pool.query(`
@@ -38,11 +36,11 @@ const initDB = async () => {
     `);
     console.log("✅ Tabel 'guests' siap digunakan!");
   } catch (err) {
-    console.error("❌ Gagal membuat tabel:", err);
+    console.error(" Gagal membuat tabel:", err);
   }
 };
 
-// Jalankan koneksi dan pembuatan tabel
+
 (async () => {
   await connectWithRetry();
   await initDB();
