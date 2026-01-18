@@ -1,0 +1,173 @@
+# ===========================
+# 1. DATABASE (PostgreSQL)
+# ===========================
+apiVersion: v1
+kind: Service
+metadata:
+  name: db
+spec:
+  ports:
+    - port: 5432
+      targetPort: 5432
+  selector:
+    app: postgres
+  clusterIP: None
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: postgres-deployment
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: postgres
+  template:
+    metadata:
+      labels:
+        app: postgres
+    spec:
+      containers:
+        - name: postgres
+          image: postgres:15
+          ports:
+            - containerPort: 5432
+          env:
+            - name: POSTGRES_USER
+              value: "wedding"
+            - name: POSTGRES_PASSWORD
+              value: "wedding123"
+            - name: POSTGRES_DB
+              value: "wedding_db"
+          # Database biasanya tidak di-autoscale, jadi tidak perlu resources limit ketat di sini
+
+---
+# ===========================
+# 2. BACKEND (API) + HPA
+# ===========================
+apiVersion: v1
+kind: Service
+metadata:
+  name: backend
+spec:
+  type: NodePort
+  selector:
+    app: backend
+  ports:
+    - port: 5000
+      targetPort: 5000
+      nodePort: 30005
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: backend-deployment
+spec:
+  replicas: 1 # Jumlah awal
+  selector:
+    matchLabels:
+      app: backend
+  template:
+    metadata:
+      labels:
+        app: backend
+    spec:
+      containers:
+        - name: backend
+          image: felixwinarthaa/weddingapp-backend:latest
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 5000
+          env:
+            - name: DB_HOST
+              value: "db"
+            - name: DB_PORT
+              value: "5432"
+            - name: DB_USER
+              value: "wedding"
+            - name: DB_PASSWORD
+              value: "wedding123"
+            - name: DB_NAME
+              value: "wedding_db"
+          # [WAJIB UNTUK HPA] Menentukan jatah CPU & Memory
+          resources:
+            requests:
+              cpu: "100m"  # Min 10% CPU
+              memory: "128Mi"
+            limits:
+              cpu: "500m"  # Max 50% CPU
+              memory: "512Mi"
+---
+# Konfigurasi HPA untuk Backend (Nilai Ujian 15 Poin)
+apiVersion: autoscaling/v1
+kind: HorizontalPodAutoscaler
+metadata:
+  name: backend-hpa
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: backend-deployment
+  minReplicas: 1
+  maxReplicas: 5 # Bisa bertambah sampai 5 pod kalau ramai
+  targetCPUUtilizationPercentage: 50 # Tambah pod jika CPU > 50%
+
+---
+# ===========================
+# 3. FRONTEND (Web) + HPA
+# ===========================
+apiVersion: v1
+kind: Service
+metadata:
+  name: frontend
+spec:
+  type: NodePort
+  selector:
+    app: frontend
+  ports:
+    - port: 3000
+      targetPort: 3000
+      nodePort: 30000
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: frontend-deployment
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: frontend
+  template:
+    metadata:
+      labels:
+        app: frontend
+    spec:
+      containers:
+        - name: frontend
+          image: felixwinarthaa/weddingapp-frontend:latest
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 3000
+          # [WAJIB UNTUK HPA]
+          resources:
+            requests:
+              cpu: "200m"
+              memory: "256Mi"
+            limits:
+              cpu: "1000m"      
+              memory: "1024Mi"  
+---
+# Konfigurasi HPA untuk Frontend (Nilai Ujian 15 Poin)
+apiVersion: autoscaling/v1
+kind: HorizontalPodAutoscaler
+metadata:
+  name: frontend-hpa
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: frontend-deployment
+  minReplicas: 1
+  maxReplicas: 5
+  targetCPUUtilizationPercentage: 50
