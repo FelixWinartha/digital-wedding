@@ -1,0 +1,20 @@
+# Gunakan Node.js versi LTS
+FROM node:20
+
+# Set working directory
+WORKDIR /app
+
+# Copy package.json & package-lock.json
+COPY package*.json ./
+
+# Install dependencies
+RUN npm install
+
+# Copy semua file backend
+COPY . .
+
+# Expose port backend
+EXPOSE 5000
+
+# Jalankan server
+CMD ["node", "server.js"]
